@@ -7,21 +7,21 @@ from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler
 from telegram.ext import Filters, Updater
 
 import cms_api
-from utils import get_database_connection, fetch_coordinates
+from utils import fetch_coordinates, get_database_connection, get_min_distance
 
 
 def next_menu():
     pass
 
 
-def create_keyboard_3_columns(products):
+def create_keyboard_with_columns(products, columns_cnt: int):
     keyboard = []
     buttons = []
 
     for index, product in enumerate(products, start=1):
         buttons.append(InlineKeyboardButton(product["name"],
                                             callback_data=product["id"]))
-        if index % 3 == 0:
+        if index % columns_cnt == 0:
             keyboard.append(buttons)
             buttons = []
 
@@ -34,7 +34,7 @@ def create_keyboard_3_columns(products):
 
 def start(bot, update, client_id):
     products = cms_api.get_products(client_id=client_id)
-    reply_markup = InlineKeyboardMarkup(create_keyboard_3_columns(products))
+    reply_markup = InlineKeyboardMarkup(create_keyboard_with_columns(products, 3))
 
     if update.message:
         update.message.reply_text(text="Выберите свою пиццу:", reply_markup=reply_markup)
@@ -106,7 +106,7 @@ def view_cart(bot, update, client_id):
     elif query.data == 'pay':
         bot.send_message(text='Хорошо, пришлите нам ваш адрес текстом или геолокацию',
                          chat_id=update.callback_query.message.chat_id)
-        return "WAITING_EMAIL"
+        return "WAITING_ADDRESS"
 
     message, reply_markup = generate_cart(bot, update, client_id)
     bot.send_message(text=message,
@@ -117,23 +117,39 @@ def view_cart(bot, update, client_id):
     return "HANDLE_CART"
 
 
-def waiting_email(bot, update, client_id):
-    chat_id = update.message.chat_id
+def waiting_address(bot, update, client_id):
+    message = update.message
 
-
-    if update.message.text:
-        coordinates = fetch_coordinates(address=update.message.text)
-        if coordinates is None:
-            bot.send_message(text='Ошибка в адресе, повторите ввод', chat_id=chat_id)
-            return "WAITING_EMAIL"
-
+    if message.text:
+        current_pos = fetch_coordinates(address=message.text)
+        if current_pos is None:
+            bot.send_message(text='Не могу распознать этот адрес', chat_id=message.chat_id)
+            return "WAITING_ADDRESS"
     else:
-        coordinates = (update.message.location['longitude'], update.message.location['latitude'])
+        current_pos = message.location.latitude, message.location.longitude
+
+    address, min_distanse = get_min_distance(client_id, current_pos)
+
+    keyboard = [[InlineKeyboardButton("Доставка", callback_data='delivery')],
+                [InlineKeyboardButton('Самовывоз', callback_data='pickup')]
+                ]
+
+    if 0 < min_distanse <= 0.5:
+        message = (f'Может заберете пиццу из нашей пиццерии неподалеку? Она всего в {round(min_distanse,2)} метрах от вас!'
+                   f'Вот ее адрес: {address}. \n\n А можем и бесплатно доставить, нам не сложно')
+    elif 0 < min_distanse <= 5:
+        message = 'Похоже, придется ехать до вас на самокате. Доставка будет стоить 100 рублей.  Доставляем или самовывоз?'
+    elif 5 < min_distanse <= 20:
+        message = 'На самокате похоже не добраться. Доставка авто будет стоить 300 рублей.  Доставляем или самовывоз?'
+    elif 20 < min_distanse <= 50:
+        message = 'К сожалению на такую дистанцию только самовывоз'
+    else:
+        message = 'Так далеко мы не доставляем'
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("В меню", callback_data='back')]
-    ])
-    bot.send_message(text=coordinates, chat_id=chat_id, reply_markup=keyboard)
+            [InlineKeyboardButton("В меню", callback_data='back')]
+        ])
+    bot.send_message(text=message, chat_id=update.message.chat_id, reply_markup=keyboard)
     # bot.send_message(text=f'Ваш email: {email} сохранен',
     #                  chat_id=chat_id,
     #                  reply_markup=keyboard)
@@ -184,7 +200,7 @@ def handle_users_reply(bot, update, client_id):
         'HANDLE_MENU': handle_menu,
         'HANDLE_DESCRIPTION': handle_description,
         'HANDLE_CART': view_cart,
-        'WAITING_EMAIL': waiting_email,
+        'WAITING_ADDRESS': waiting_address,
     }
 
     state_handler = states_functions[user_state]

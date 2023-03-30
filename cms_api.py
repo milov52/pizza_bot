@@ -135,7 +135,7 @@ def create_flow_fields(headers, json_data):
     response_create_flow_field.raise_for_status()
 
 
-def create_pizzeria_addresses_flow(client_id: str, flow_name:str):
+def create_pizzeria_addresses_flow(client_id: str, flow_name: str):
     headers = get_access_header_data(client_id)
 
     flow_data = {
@@ -174,6 +174,7 @@ def create_pizzeria_addresses_flow(client_id: str, flow_name:str):
         }
         create_flow_fields(headers, field_data)
 
+
 def add_addresses_to_flow(client_id, addresses, flow_name):
     headers = get_access_header_data(client_id)
     for address in addresses:
@@ -194,16 +195,18 @@ def add_addresses_to_flow(client_id, addresses, flow_name):
         )
     print('Add entries is complete')
 
+
 def get_products(client_id):
     headers = get_access_header_data(client_id)
 
     products_data = requests.get(f'https://api.moltin.com/v2/products/',
-                                     headers=headers)
+                                 headers=headers)
     products_data.raise_for_status()
 
     products_data = products_data.json()
     products = [{"id": product["id"], "name": product["name"]} for product in products_data["data"]]
     return products
+
 
 def get_product(product_id, client_id):
     headers = get_access_header_data(client_id)
@@ -234,6 +237,7 @@ def get_file_by_id(headers, file_id: str, client_id: str):
     file_data.raise_for_status()
     return file_data.json()
 
+
 def create_user_account(name: str, email: str, client_id: str):
     headers = get_access_header_data(client_id)
 
@@ -252,6 +256,7 @@ def create_user_account(name: str, email: str, client_id: str):
     )
     response_create_customer.raise_for_status()
 
+
 def add_to_cart(cart_id: str, product_id: str, quantity: int, client_id: str):
     headers = get_access_header_data(client_id)
 
@@ -266,6 +271,7 @@ def add_to_cart(cart_id: str, product_id: str, quantity: int, client_id: str):
                          json=cart_data,
                          headers=headers)
     cart.raise_for_status()
+
 
 def get_cart(cart_id: str, client_id: str):
     headers = get_access_header_data(client_id)
@@ -297,5 +303,18 @@ def delete_from_cart(cart_id: str, product_id: str, client_id: str):
     headers = get_access_header_data(client_id)
 
     cart_delete_response = requests.delete(f'https://api.moltin.com/v2/carts/{cart_id}/items/{product_id}',
-                           headers=headers)
+                                           headers=headers)
     cart_delete_response.raise_for_status()
+
+
+def get_addresses(client_id: str, flow_slug: str):
+    headers = get_access_header_data(client_id)
+    addresses_response = requests.get(
+        f'https://api.moltin.com/v2/flows/{flow_slug}/entries',
+        headers=headers
+    )
+    addresses_data = addresses_response.json()
+    addresses = [{"address": address["address"],
+                  "coordinate": (float(address['longitude']), float(address['latitude']))}
+                 for address in addresses_data["data"]]
+    return addresses
