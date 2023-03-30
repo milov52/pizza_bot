@@ -29,7 +29,7 @@ def check_access_token(client_id: str):
         get_access_token(client_id)
 
 
-def get_header_data(client_id: str):
+def get_access_header_data(client_id: str):
     check_access_token(client_id)
     access_token = os.getenv('ACCESS_TOKEN')
     headers = {
@@ -39,7 +39,7 @@ def get_header_data(client_id: str):
 
 
 def get_product_by_id(client_id: str, product_id: int):
-    headers = get_header_data(client_id)
+    headers = get_access_header_data(client_id)
     product_data = requests.get(f'https://api.moltin.com/pcm/products/{product_id}',
                                 headers=headers)
     product_data.raise_for_status()
@@ -75,43 +75,44 @@ def add_image_to_product(headers, product_id, file_id):
 
 
 def create_product(client_id: str, products):
-    headers = get_header_data(client_id)
+    headers = get_access_header_data(client_id)
 
-    json_data = {
-        'data': {
-            'type': 'product',
-            'name': products[0]['name'],
-            'slug': slugify(products[0]['name']),
-            'sku': slugify(products[0]['name']),
-            'description': products[0]['description'],
-            'manage_stock': False,
-            'price': [
-                {
-                    'amount': products[0]['price'],
-                    'currency': 'RUB',
-                    'includes_tax': True,
-                },
-            ],
-            'status': 'live',
-            'commodity_type': 'physical',
-        },
-    }
+    for product in products:
+        json_data = {
+            'data': {
+                'type': 'product',
+                'name': product['name'],
+                'slug': slugify(product['name']),
+                'sku': slugify(product['name']),
+                'description': product['description'],
+                'manage_stock': False,
+                'price': [
+                    {
+                        'amount': product['price'],
+                        'currency': 'RUB',
+                        'includes_tax': True,
+                    },
+                ],
+                'status': 'live',
+                'commodity_type': 'physical',
+            },
+        }
 
-    response_create_product = requests.post(
-        'https://api.moltin.com/v2/products',
-        headers=headers,
-        json=json_data
-    )
+        response_create_product = requests.post(
+            'https://api.moltin.com/v2/products',
+            headers=headers,
+            json=json_data
+        )
 
-    response_create_product = response_create_product.json()
-    product_id = response_create_product['data']['id']
+        response_create_product = response_create_product.json()
+        product_id = response_create_product['data']['id']
 
-    file_id = create_file(headers=headers,
-                          image_url=products[0]['product_image']['url'])
+        file_id = create_file(headers=headers,
+                              image_url=product['product_image']['url'])
 
-    add_image_to_product(headers=headers,
-                         product_id=product_id,
-                         file_id=file_id)
+        add_image_to_product(headers=headers,
+                             product_id=product_id,
+                             file_id=file_id)
 
 
 def create_flow(headers, json_data):
@@ -135,7 +136,7 @@ def create_flow_fields(headers, json_data):
 
 
 def create_pizzeria_addresses_flow(client_id: str, flow_name:str):
-    headers = get_header_data(client_id)
+    headers = get_access_header_data(client_id)
 
     flow_data = {
         'data': {
@@ -174,7 +175,7 @@ def create_pizzeria_addresses_flow(client_id: str, flow_name:str):
         create_flow_fields(headers, field_data)
 
 def add_addresses_to_flow(client_id, addresses, flow_name):
-    headers = get_header_data(client_id)
+    headers = get_access_header_data(client_id)
     for address in addresses:
         address_data = {
             'data': {
@@ -192,3 +193,109 @@ def add_addresses_to_flow(client_id, addresses, flow_name):
             json=address_data
         )
     print('Add entries is complete')
+
+def get_products(client_id):
+    headers = get_access_header_data(client_id)
+
+    products_data = requests.get(f'https://api.moltin.com/v2/products/',
+                                     headers=headers)
+    products_data.raise_for_status()
+
+    products_data = products_data.json()
+    products = [{"id": product["id"], "name": product["name"]} for product in products_data["data"]]
+    return products
+
+def get_product(product_id, client_id):
+    headers = get_access_header_data(client_id)
+
+    product_data = requests.get(f'https://api.moltin.com/v2/products/{product_id}',
+                                headers=headers)
+    product_data.raise_for_status()
+    product_data = product_data.json()["data"]
+
+    file_id = product_data["relationships"]["main_image"]["data"]["id"]
+    image_data = get_file_by_id(headers, file_id, client_id)
+
+    product = {
+        "file_id": file_id,
+        "image_path": image_data["data"]["link"]["href"],
+        "name": product_data["name"],
+        "description": product_data["description"],
+        "price": product_data["meta"]["display_price"]["with_tax"]["formatted"],
+        "stock": product_data["meta"]["stock"]["level"]
+    }
+
+    return product
+
+
+def get_file_by_id(headers, file_id: str, client_id: str):
+    file_data = requests.get(f'https://api.moltin.com/v2/files/{file_id}',
+                             headers=headers)
+    file_data.raise_for_status()
+    return file_data.json()
+
+def create_user_account(name: str, email: str, client_id: str):
+    headers = get_access_header_data(client_id)
+
+    json_data = {
+        'data': {
+            'type': 'customer',
+            'name': name,
+            'email': email,
+        },
+    }
+
+    response_create_customer = requests.post(
+        'https://api.moltin.com/v2/customers',
+        headers=headers,
+        json=json_data
+    )
+    response_create_customer.raise_for_status()
+
+def add_to_cart(cart_id: str, product_id: str, quantity: int, client_id: str):
+    headers = get_access_header_data(client_id)
+
+    cart_data = {
+        "data": {
+            "id": product_id,
+            "type": "cart_item",
+            "quantity": quantity
+        }
+    }
+    cart = requests.post(f'https://api.moltin.com/v2/carts/{cart_id}/items',
+                         json=cart_data,
+                         headers=headers)
+    cart.raise_for_status()
+
+def get_cart(cart_id: str, client_id: str):
+    headers = get_access_header_data(client_id)
+
+    cart_response = requests.get(f'https://api.moltin.com/v2/carts/{cart_id}',
+                                 headers=headers)
+    cart_response.raise_for_status()
+    cart_items_response = requests.get(f'https://api.moltin.com/v2/carts/{cart_id}/items',
+                                       headers=headers)
+    cart_items_response.raise_for_status()
+
+    cart = []
+    for cart_items in cart_items_response.json()["data"]:
+        cart_item = {
+            "id": cart_items["id"],
+            "name": cart_items["name"],
+            "description": cart_items["description"],
+            "price": cart_items["unit_price"]["amount"],
+            "quantity": cart_items["quantity"],
+            "amount": cart_items["value"]["amount"]
+        }
+        cart.append(cart_item)
+
+    full_amount = cart_response.json()["data"]["meta"]["display_price"]["with_tax"]["amount"]
+    return {"cart_items": cart, "full_amount": full_amount}
+
+
+def delete_from_cart(cart_id: str, product_id: str, client_id: str):
+    headers = get_access_header_data(client_id)
+
+    cart_delete_response = requests.delete(f'https://api.moltin.com/v2/carts/{cart_id}/items/{product_id}',
+                           headers=headers)
+    cart_delete_response.raise_for_status()
