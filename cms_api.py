@@ -175,25 +175,13 @@ def create_pizzeria_addresses_flow(client_id: str, flow_name: str):
         create_flow_fields(headers, field_data)
 
 
-def add_addresses_to_flow(client_id, addresses, flow_name):
+def add_data_to_flow(client_id, data_json, flow_name):
     headers = get_access_header_data(client_id)
-    for address in addresses:
-        address_data = {
-            'data': {
-                'type': 'entry',
-                'address': address['address']['full'],
-                'alias': address['alias'],
-                'longitude': address['coordinates']['lon'],
-                'latitude': address['coordinates']['lat']
-            },
-        }
-
-        requests.post(
-            f'https://api.moltin.com/v2/flows/{flow_name}/entries',
-            headers=headers,
-            json=address_data
-        )
-    print('Add entries is complete')
+    requests.post(
+        f'https://api.moltin.com/v2/flows/{flow_name}/entries',
+        headers=headers,
+        json=data_json
+    )
 
 
 def get_products(client_id):
@@ -236,25 +224,6 @@ def get_file_by_id(headers, file_id: str, client_id: str):
                              headers=headers)
     file_data.raise_for_status()
     return file_data.json()
-
-
-def create_user_account(name: str, email: str, client_id: str):
-    headers = get_access_header_data(client_id)
-
-    json_data = {
-        'data': {
-            'type': 'customer',
-            'name': name,
-            'email': email,
-        },
-    }
-
-    response_create_customer = requests.post(
-        'https://api.moltin.com/v2/customers',
-        headers=headers,
-        json=json_data
-    )
-    response_create_customer.raise_for_status()
 
 
 def add_to_cart(cart_id: str, product_id: str, quantity: int, client_id: str):
@@ -315,6 +284,7 @@ def get_addresses(client_id: str, flow_slug: str):
     )
     addresses_data = addresses_response.json()
     addresses = [{"address": address["address"],
-                  "coordinate": (float(address['longitude']), float(address['latitude']))}
+                  "coordinate": (float(address['longitude']), float(address['latitude'])),
+                  "telegram_id_delieveryman": address['telegram_id']}
                  for address in addresses_data["data"]]
     return addresses

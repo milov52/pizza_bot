@@ -126,36 +126,58 @@ def waiting_address(bot, update, client_id):
             bot.send_message(text='Не могу распознать этот адрес', chat_id=message.chat_id)
             return "WAITING_ADDRESS"
     else:
-        current_pos = message.location.latitude, message.location.longitude
+        current_pos = message.location.longitude, message.location.latitude
 
-    address, min_distanse = get_min_distance(client_id, current_pos)
-
-    keyboard = [[InlineKeyboardButton("Доставка", callback_data='delivery')],
-                [InlineKeyboardButton('Самовывоз', callback_data='pickup')]
-                ]
-
-    if 0 < min_distanse <= 0.5:
-        message = (f'Может заберете пиццу из нашей пиццерии неподалеку? Она всего в {round(min_distanse,2)} метрах от вас!'
-                   f'Вот ее адрес: {address}. \n\n А можем и бесплатно доставить, нам не сложно')
-    elif 0 < min_distanse <= 5:
-        message = 'Похоже, придется ехать до вас на самокате. Доставка будет стоить 100 рублей.  Доставляем или самовывоз?'
-    elif 5 < min_distanse <= 20:
-        message = 'На самокате похоже не добраться. Доставка авто будет стоить 300 рублей.  Доставляем или самовывоз?'
-    elif 20 < min_distanse <= 50:
-        message = 'К сожалению на такую дистанцию только самовывоз'
-    else:
-        message = 'Так далеко мы не доставляем'
+    address, (min_distanse, delieveryman_id) = get_min_distance(client_id, current_pos)
 
     keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton('Доставка', callback_data=f'delivery:{current_pos}:{delieveryman_id}')],
+                [InlineKeyboardButton('Самовывоз', callback_data=f'pickup')]
+                ])
+
+    if 0 < min_distanse <= 0.5:
+        message = (
+            f'Может заберете пиццу из нашей пиццерии неподалеку? Она всего в {round(min_distanse, 2)} метрах от вас!'
+            f'Вот ее адрес: {address}. \n\n А можем и бесплатно доставить, нам не сложно')
+    elif 0 < min_distanse <= 5:
+        message = f'Ближайшая пиццерия находится по адресу: {address}. Доставка будет стоить 100 рублей.  Доставляем или самовывоз?'
+    elif 5 < min_distanse <= 20:
+        message = f'Ближайшая пиццерия находится по адресу: {address}. Доставка авто будет стоить 300 рублей.  Доставляем или самовывоз?'
+    elif 20 < min_distanse <= 50:
+        message = f'Ближайшая пиццерия находится по адресу: {address}. К сожалению на такую дистанцию только самовывоз'
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Самовывоз", callback_data=f'pickup')]
+        ])
+    else:
+        message = 'Так далеко мы не доставляем'
+        keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("В меню", callback_data='back')]
         ])
-    bot.send_message(text=message, chat_id=update.message.chat_id, reply_markup=keyboard)
-    # bot.send_message(text=f'Ваш email: {email} сохранен',
-    #                  chat_id=chat_id,
-    #                  reply_markup=keyboard)
-    # cms_api.create_user_account(str(chat_id), email, client_id)
-    return "START"
 
+    bot.send_message(text=message, chat_id=update.message.chat_id, reply_markup=keyboard)
+    return "HANDLE_DELIEVERY"
+
+
+def handle_delievery(bot, update, client_id):
+    query = update.callback_query
+
+    if 'delivery' in query.data:
+        _, client_pos, delieveryman_id = query.data.split(':')
+        long, lat = tuple(map(float, client_pos[1:-1].split(',')))
+        order_message, _ = generate_cart(bot, update, client_id)
+        bot.send_message(text=order_message, chat_id=query.message.chat_id)
+        bot.send_location(
+            chat_id=delieveryman_id,
+            longitude=long,
+            latitude=lat,
+            message=order_message)
+
+    message = f'Спасибо за заказ, ждем вас в нашей пиццерии'
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("В меню", callback_data='back')]
+    ])
+    bot.send_message(text=message, chat_id=query.message.chat_id, reply_markup=keyboard)
+    return "HANDLE_DESCRIPTION"
 
 def generate_cart(bot, update, client_id):
     chat_id = update.callback_query.message.chat_id
@@ -201,6 +223,7 @@ def handle_users_reply(bot, update, client_id):
         'HANDLE_DESCRIPTION': handle_description,
         'HANDLE_CART': view_cart,
         'WAITING_ADDRESS': waiting_address,
+        'HANDLE_DELIEVERY': handle_delievery,
     }
 
     state_handler = states_functions[user_state]
