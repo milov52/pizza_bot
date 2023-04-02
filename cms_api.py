@@ -5,9 +5,9 @@ import requests
 from slugify import slugify
 
 
-def get_access_token(client_id: str):
+def get_access_token():
     data = {
-        'client_id': client_id,
+        'client_id': os.environ.get('CLIENT_ID'),
         'client_secret': os.environ.get('CLIENT_SECRET'),
         'grant_type': os.environ.get('GRANT_TYPE')
     }
@@ -22,15 +22,15 @@ def get_access_token(client_id: str):
     os.environ.setdefault('ACCESS_TOKEN', assess_token['access_token'])
 
 
-def check_access_token(client_id: str):
+def check_access_token():
     token_expires_time = os.environ.get('MOLTIN_TOKEN_EXPIRES_TIME')
     timestamp = int(datetime.now().timestamp())
     if not token_expires_time or int(token_expires_time) < timestamp:
-        get_access_token(client_id)
+        get_access_token()
 
 
-def get_access_header_data(client_id: str):
-    check_access_token(client_id)
+def get_access_header_data():
+    check_access_token()
     access_token = os.getenv('ACCESS_TOKEN')
     headers = {
         'Authorization': f'Bearer {access_token}'
@@ -38,8 +38,8 @@ def get_access_header_data(client_id: str):
     return headers
 
 
-def get_product_by_id(client_id: str, product_id: int):
-    headers = get_access_header_data(client_id)
+def get_product_by_id(product_id: int):
+    headers = get_access_header_data()
     product_data = requests.get(f'https://api.moltin.com/pcm/products/{product_id}',
                                 headers=headers)
     product_data.raise_for_status()
@@ -74,8 +74,8 @@ def add_image_to_product(headers, product_id, file_id):
     )
 
 
-def create_product(client_id: str, products):
-    headers = get_access_header_data(client_id)
+def create_product(products):
+    headers = get_access_header_data()
 
     for product in products:
         json_data = {
@@ -135,8 +135,8 @@ def create_flow_fields(headers, json_data):
     response_create_flow_field.raise_for_status()
 
 
-def create_pizzeria_addresses_flow(client_id: str, flow_name: str):
-    headers = get_access_header_data(client_id)
+def create_pizzeria_addresses_flow(flow_name: str):
+    headers = get_access_header_data()
 
     flow_data = {
         'data': {
@@ -175,8 +175,29 @@ def create_pizzeria_addresses_flow(client_id: str, flow_name: str):
         create_flow_fields(headers, field_data)
 
 
-def add_data_to_flow(client_id, data_json, flow_name):
-    headers = get_access_header_data(client_id)
+def add_addresses_to_flow(addresses, flow_name):
+    headers = get_access_header_data()
+    for address in addresses:
+        address_data = {
+            'data': {
+                'type': 'entry',
+                'address': address['address']['full'],
+                'alias': address['alias'],
+                'longitude': address['coordinates']['lon'],
+                'latitude': address['coordinates']['lat']
+            },
+        }
+
+        requests.post(
+            f'https://api.moltin.com/v2/flows/{flow_name}/entries',
+            headers=headers,
+            json=address_data
+        )
+    print('Add entries is complete')
+
+
+def add_data_to_flow(data_json, flow_name):
+    headers = get_access_header_data()
     requests.post(
         f'https://api.moltin.com/v2/flows/{flow_name}/entries',
         headers=headers,
@@ -184,8 +205,8 @@ def add_data_to_flow(client_id, data_json, flow_name):
     )
 
 
-def get_products(client_id):
-    headers = get_access_header_data(client_id)
+def get_products():
+    headers = get_access_header_data()
 
     products_data = requests.get(f'https://api.moltin.com/v2/products/',
                                  headers=headers)
@@ -196,8 +217,8 @@ def get_products(client_id):
     return products
 
 
-def get_product(product_id, client_id):
-    headers = get_access_header_data(client_id)
+def get_product(product_id):
+    headers = get_access_header_data()
 
     product_data = requests.get(f'https://api.moltin.com/v2/products/{product_id}',
                                 headers=headers)
@@ -205,7 +226,7 @@ def get_product(product_id, client_id):
     product_data = product_data.json()["data"]
 
     file_id = product_data["relationships"]["main_image"]["data"]["id"]
-    image_data = get_file_by_id(headers, file_id, client_id)
+    image_data = get_file_by_id(headers, file_id)
 
     product = {
         "file_id": file_id,
@@ -219,15 +240,15 @@ def get_product(product_id, client_id):
     return product
 
 
-def get_file_by_id(headers, file_id: str, client_id: str):
+def get_file_by_id(headers, file_id: str):
     file_data = requests.get(f'https://api.moltin.com/v2/files/{file_id}',
                              headers=headers)
     file_data.raise_for_status()
     return file_data.json()
 
 
-def add_to_cart(cart_id: str, product_id: str, quantity: int, client_id: str):
-    headers = get_access_header_data(client_id)
+def add_to_cart(cart_id: str, product_id: str, quantity: int,):
+    headers = get_access_header_data()
 
     cart_data = {
         "data": {
@@ -242,8 +263,8 @@ def add_to_cart(cart_id: str, product_id: str, quantity: int, client_id: str):
     cart.raise_for_status()
 
 
-def get_cart(cart_id: str, client_id: str):
-    headers = get_access_header_data(client_id)
+def get_cart(cart_id: str):
+    headers = get_access_header_data()
 
     cart_response = requests.get(f'https://api.moltin.com/v2/carts/{cart_id}',
                                  headers=headers)
@@ -268,16 +289,16 @@ def get_cart(cart_id: str, client_id: str):
     return {"cart_items": cart, "full_amount": full_amount}
 
 
-def delete_from_cart(cart_id: str, product_id: str, client_id: str):
-    headers = get_access_header_data(client_id)
+def delete_from_cart(cart_id: str, product_id: str):
+    headers = get_access_header_data()
 
     cart_delete_response = requests.delete(f'https://api.moltin.com/v2/carts/{cart_id}/items/{product_id}',
                                            headers=headers)
     cart_delete_response.raise_for_status()
 
 
-def get_addresses(client_id: str, flow_slug: str):
-    headers = get_access_header_data(client_id)
+def get_addresses(flow_slug: str):
+    headers = get_access_header_data()
     addresses_response = requests.get(
         f'https://api.moltin.com/v2/flows/{flow_slug}/entries',
         headers=headers

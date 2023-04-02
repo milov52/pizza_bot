@@ -1,5 +1,5 @@
+import logging
 import os
-from functools import partial
 
 from dotenv import load_dotenv
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -7,33 +7,12 @@ from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler
 from telegram.ext import Filters, Updater
 
 import cms_api
-from utils import fetch_coordinates, get_database_connection, get_min_distance
+from utils import create_keyboard_with_columns, fetch_coordinates, generate_cart, get_database_connection, \
+    get_min_distance
 
 
-def next_menu():
-    pass
-
-
-def create_keyboard_with_columns(products, columns_cnt: int):
-    keyboard = []
-    buttons = []
-
-    for index, product in enumerate(products, start=1):
-        buttons.append(InlineKeyboardButton(product["name"],
-                                            callback_data=product["id"]))
-        if index % columns_cnt == 0:
-            keyboard.append(buttons)
-            buttons = []
-
-    # keyboard.append([InlineKeyboardButton('<<', callback_data=f'next {index+1}'),
-    #                  InlineKeyboardButton('>>', callback_data=f'previous {index-6}')])
-    keyboard.append([InlineKeyboardButton('Корзина',
-                                          callback_data='cart')])
-    return keyboard
-
-
-def start(bot, update, client_id):
-    products = cms_api.get_products(client_id=client_id)
+def start(bot, update, job_queue):
+    products = cms_api.get_products()
     reply_markup = InlineKeyboardMarkup(create_keyboard_with_columns(products, 3))
 
     if update.message:
@@ -45,14 +24,14 @@ def start(bot, update, client_id):
     return "HANDLE_MENU"
 
 
-def handle_menu(bot, update, client_id):
+def handle_menu(bot, update, job_queue):
     query = update.callback_query
 
     if query.data == 'cart':
-        view_cart(bot, update, client_id)
+        handle_cart(bot, update, job_queue)
         return "HANDLE_CART"
 
-    product = cms_api.get_product(product_id=query.data, client_id=client_id)
+    product = cms_api.get_product(product_id=query.data)
     image_path = product["image_path"]
 
     name = product["name"]
@@ -76,39 +55,39 @@ def handle_menu(bot, update, client_id):
     return "HANDLE_DESCRIPTION"
 
 
-def handle_description(bot, update, client_id):
+def handle_description(bot, update, job_queue):
     query = update.callback_query
 
     if query.data == 'back':
-        start(bot, update, client_id)
+        start(bot, update, job_queue)
         return "HANDLE_MENU"
 
     chat_id = update.callback_query.message.chat_id
 
     _, product_id = query.data.split()
-    cms_api.add_to_cart(chat_id, product_id, 1, client_id)
+    cms_api.add_to_cart(chat_id, product_id, quantity=1)
 
     query.bot.answer_callback_query(update.callback_query.id, text='Товар добавлен в корзину!', show_alert=True)
     return "HANDLE_DESCRIPTION"
 
 
-def view_cart(bot, update, client_id):
+def handle_cart(bot, update, job_queue):
     query = update.callback_query
 
     if query.data == 'back':
-        start(bot, update, client_id)
+        start(bot, update, job_queue)
         return "HANDLE_MENU"
     elif query.data.startswith('delete'):
         _, item_id = query.data.split(':')
         cart_id = query.message.chat_id
-        cms_api.delete_from_cart(cart_id, item_id, client_id)
-        generate_cart(bot, update, client_id)
+        cms_api.delete_from_cart(cart_id, item_id)
+        generate_cart(update)
     elif query.data == 'pay':
         bot.send_message(text='Хорошо, пришлите нам ваш адрес текстом или геолокацию',
                          chat_id=update.callback_query.message.chat_id)
         return "WAITING_ADDRESS"
 
-    message, reply_markup = generate_cart(bot, update, client_id)
+    message, reply_markup = generate_cart(bot, update)
     bot.send_message(text=message,
                      chat_id=update.callback_query.message.chat_id,
                      reply_markup=reply_markup)
@@ -117,7 +96,7 @@ def view_cart(bot, update, client_id):
     return "HANDLE_CART"
 
 
-def waiting_address(bot, update, client_id):
+def handle_waiting_address(bot, update, job_queue):
     message = update.message
 
     if message.text:
@@ -128,23 +107,26 @@ def waiting_address(bot, update, client_id):
     else:
         current_pos = message.location.longitude, message.location.latitude
 
-    address, (min_distanse, delieveryman_id) = get_min_distance(client_id, current_pos)
+    address, (min_distanse, delieveryman_id) = get_min_distance(current_pos)
 
     keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton('Доставка', callback_data=f'delivery:{current_pos}:{delieveryman_id}')],
-                [InlineKeyboardButton('Самовывоз', callback_data=f'pickup')]
-                ])
+        [InlineKeyboardButton('Доставка', callback_data=f'delivery:{current_pos}:{delieveryman_id}')],
+        [InlineKeyboardButton('Самовывоз', callback_data=f'pickup')]
+    ])
 
     if 0 < min_distanse <= 0.5:
         message = (
             f'Может заберете пиццу из нашей пиццерии неподалеку? Она всего в {round(min_distanse, 2)} метрах от вас!'
             f'Вот ее адрес: {address}. \n\n А можем и бесплатно доставить, нам не сложно')
     elif 0 < min_distanse <= 5:
-        message = f'Ближайшая пиццерия находится по адресу: {address}. Доставка будет стоить 100 рублей.  Доставляем или самовывоз?'
+        message = (f'Ближайшая пиццерия находится по адресу: {address}. '
+                   f'Доставка будет стоить 100 рублей.  Доставляем или самовывоз?')
     elif 5 < min_distanse <= 20:
-        message = f'Ближайшая пиццерия находится по адресу: {address}. Доставка авто будет стоить 300 рублей.  Доставляем или самовывоз?'
+        message = (f'Ближайшая пиццерия находится по адресу: {address}.'
+                   f'Доставка авто будет стоить 300 рублей.  Доставляем или самовывоз?')
     elif 20 < min_distanse <= 50:
-        message = f'Ближайшая пиццерия находится по адресу: {address}. К сожалению на такую дистанцию только самовывоз'
+        message = (f'Ближайшая пиццерия находится по адресу: {address}. '
+                   f'К сожалению на такую дистанцию только самовывоз')
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Самовывоз", callback_data=f'pickup')]
         ])
@@ -158,13 +140,23 @@ def waiting_address(bot, update, client_id):
     return "HANDLE_DELIEVERY"
 
 
-def handle_delievery(bot, update, client_id):
+def message_for_client(bot, job):
+    reclama = os.environ.get('PROMOTIONAL_MESSAGE')
+    problem_message = os.environ.get('PROBLEM_MESSAGE')
+    message = f'''
+        Приятного аппетита! {reclama}\n\n
+        {problem_message}
+    '''
+    bot.send_message(chat_id=job.context, text=message)
+
+
+def handle_delievery(bot, update, job_queue):
     query = update.callback_query
 
     if 'delivery' in query.data:
         _, client_pos, delieveryman_id = query.data.split(':')
         long, lat = tuple(map(float, client_pos[1:-1].split(',')))
-        order_message, _ = generate_cart(bot, update, client_id)
+        order_message, _ = generate_cart(bot, update)
         bot.send_message(text=order_message, chat_id=query.message.chat_id)
         bot.send_location(
             chat_id=delieveryman_id,
@@ -173,36 +165,17 @@ def handle_delievery(bot, update, client_id):
             message=order_message)
 
     message = f'Спасибо за заказ, ждем вас в нашей пиццерии'
+
+    job_queue.run_once(message_for_client, 60 * 60, context=query.message.chat_id)
+
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("В меню", callback_data='back')]
     ])
     bot.send_message(text=message, chat_id=query.message.chat_id, reply_markup=keyboard)
     return "HANDLE_DESCRIPTION"
 
-def generate_cart(bot, update, client_id):
-    chat_id = update.callback_query.message.chat_id
-    cart_info = cms_api.get_cart(chat_id, client_id)
-    message = ''
-    buttons = []
 
-    for item in cart_info["cart_items"]:
-        message += f'{item["name"]}\n' \
-                   f'{item["description"][:100]}\n' \
-                   f'{item["quantity"]} пицц в корзине на сумму {item["amount"]}\n\n'
-
-        buttons.append([InlineKeyboardButton(f'Убрать из корзины {item["name"]}',
-                                             callback_data=f'delete:{item["id"]}')])
-
-    message += f'К оплате: {cart_info["full_amount"]}'
-
-    buttons.append([InlineKeyboardButton("В меню", callback_data='back')])
-    buttons.append([InlineKeyboardButton("Оплатить", callback_data='pay')])
-
-    reply_markup = InlineKeyboardMarkup(buttons)
-    return message, reply_markup
-
-
-def handle_users_reply(bot, update, client_id):
+def handle_users_reply(bot, update, job_queue):
     if update.message:
         user_reply = update.message.text
         chat_id = update.message.chat_id
@@ -221,33 +194,45 @@ def handle_users_reply(bot, update, client_id):
         'START': start,
         'HANDLE_MENU': handle_menu,
         'HANDLE_DESCRIPTION': handle_description,
-        'HANDLE_CART': view_cart,
-        'WAITING_ADDRESS': waiting_address,
+        'HANDLE_CART': handle_cart,
+        'WAITING_ADDRESS': handle_waiting_address,
         'HANDLE_DELIEVERY': handle_delievery,
     }
 
     state_handler = states_functions[user_state]
     try:
-        next_state = state_handler(bot, update, client_id)
+        next_state = state_handler(bot, update, job_queue)
         db.set(chat_id, next_state)
     except Exception as err:
         print(err)
 
 
+def error_callback(bot, update, error):
+    try:
+        logging.error(str(update))
+        update.message.reply_text(text='Возникла ошибка!')
+    except Exception as err:
+        logging.critical(err)
+
+
 if __name__ == '__main__':
     load_dotenv()
-    client_id = os.environ.get("CLIENT_ID")
     token = os.environ.get("TELEGRAM_TOKEN")
 
     # init_data(client_id)
 
     db = get_database_connection()
-
     updater = Updater(token)
-    dispatcher = updater.dispatcher
-    dispatcher.add_handler(CommandHandler('start', partial(handle_users_reply, client_id=client_id)))
-    dispatcher.add_handler(CallbackQueryHandler(partial(handle_users_reply, client_id=client_id)))
-    dispatcher.add_handler(
-        MessageHandler(Filters.text | Filters.location, partial(handle_users_reply, client_id=client_id)))
 
+    dispatcher = updater.dispatcher
+    dispatcher.add_handler(
+        CommandHandler('start', handle_users_reply, pass_job_queue=True)
+    )
+    dispatcher.add_handler(
+        CallbackQueryHandler(handle_users_reply, pass_job_queue=True)
+    )
+    dispatcher.add_handler(
+        MessageHandler(Filters.text | Filters.location, handle_users_reply, pass_job_queue=True)
+    )
+    dispatcher.add_error_handler(error_callback)
     updater.start_polling()
