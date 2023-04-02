@@ -91,12 +91,10 @@ def create_keyboard_with_columns(products, columns_cnt: int):
         if index % columns_cnt == 0:
             keyboard.append(buttons)
             buttons = []
-
-    # keyboard.append([InlineKeyboardButton('<<', callback_data=f'next {index+1}'),
-    #                  InlineKeyboardButton('>>', callback_data=f'previous {index-6}')])
     keyboard.append([InlineKeyboardButton('Корзина',
                                           callback_data='cart')])
     return keyboard
+
 
 def generate_cart(bot, update):
     chat_id = update.callback_query.message.chat_id

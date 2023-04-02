@@ -86,9 +86,6 @@ def handle_cart(bot, update, job_queue):
     elif 'pay' in query.data:
         _, full_amount = query.data.split(':')
         payment.start_without_shipping(bot, update, int(full_amount))
-
-        # bot.send_message(text='Хорошо, пришлите нам ваш адрес текстом или геолокацию',
-        #                  chat_id=update.callback_query.message.chat_id)
         return "WAITING_ADDRESS"
 
     message, reply_markup = generate_cart(bot, update)
@@ -222,8 +219,6 @@ def error_callback(bot, update, error):
 if __name__ == '__main__':
     load_dotenv()
     token = os.environ.get("TELEGRAM_TOKEN")
-
-    # init_data(client_id)
 
     db = get_database_connection()
     updater = Updater(token)
