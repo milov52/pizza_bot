@@ -115,7 +115,7 @@ def generate_cart(bot, update):
     message += f'К оплате: {cart_info["full_amount"]}'
 
     buttons.append([InlineKeyboardButton("В меню", callback_data='back')])
-    buttons.append([InlineKeyboardButton("Оплатить", callback_data='pay')])
+    buttons.append([InlineKeyboardButton("Оплатить", callback_data=f'pay:{cart_info["full_amount"]}')])
 
     reply_markup = InlineKeyboardMarkup(buttons)
     return message, reply_markup

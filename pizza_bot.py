@@ -3,10 +3,11 @@ import os
 
 from dotenv import load_dotenv
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler
+from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, PreCheckoutQueryHandler
 from telegram.ext import Filters, Updater
 
 import cms_api
+import payment
 from utils import create_keyboard_with_columns, fetch_coordinates, generate_cart, get_database_connection, \
     get_min_distance
 
@@ -82,9 +83,12 @@ def handle_cart(bot, update, job_queue):
         cart_id = query.message.chat_id
         cms_api.delete_from_cart(cart_id, item_id)
         generate_cart(update)
-    elif query.data == 'pay':
-        bot.send_message(text='Хорошо, пришлите нам ваш адрес текстом или геолокацию',
-                         chat_id=update.callback_query.message.chat_id)
+    elif 'pay' in query.data:
+        _, full_amount = query.data.split(':')
+        payment.start_without_shipping(bot, update, int(full_amount))
+
+        # bot.send_message(text='Хорошо, пришлите нам ваш адрес текстом или геолокацию',
+        #                  chat_id=update.callback_query.message.chat_id)
         return "WAITING_ADDRESS"
 
     message, reply_markup = generate_cart(bot, update)
@@ -114,17 +118,17 @@ def handle_waiting_address(bot, update, job_queue):
         [InlineKeyboardButton('Самовывоз', callback_data=f'pickup')]
     ])
 
-    if 0 < min_distanse <= 0.5:
+    if min_distanse < 0.5:
         message = (
             f'Может заберете пиццу из нашей пиццерии неподалеку? Она всего в {round(min_distanse, 2)} метрах от вас!'
             f'Вот ее адрес: {address}. \n\n А можем и бесплатно доставить, нам не сложно')
-    elif 0 < min_distanse <= 5:
+    elif min_distanse < 5:
         message = (f'Ближайшая пиццерия находится по адресу: {address}. '
                    f'Доставка будет стоить 100 рублей.  Доставляем или самовывоз?')
-    elif 5 < min_distanse <= 20:
+    elif min_distanse < 20:
         message = (f'Ближайшая пиццерия находится по адресу: {address}.'
                    f'Доставка авто будет стоить 300 рублей.  Доставляем или самовывоз?')
-    elif 20 < min_distanse <= 50:
+    elif min_distanse < 50:
         message = (f'Ближайшая пиццерия находится по адресу: {address}. '
                    f'К сожалению на такую дистанцию только самовывоз')
         keyboard = InlineKeyboardMarkup([
@@ -233,6 +237,10 @@ if __name__ == '__main__':
     )
     dispatcher.add_handler(
         MessageHandler(Filters.text | Filters.location, handle_users_reply, pass_job_queue=True)
+    )
+    dispatcher.add_handler(PreCheckoutQueryHandler(payment.precheckout_callback))
+    dispatcher.add_handler(
+        MessageHandler(Filters.successful_payment, payment.successful_payment_callback)
     )
     dispatcher.add_error_handler(error_callback)
     updater.start_polling()
