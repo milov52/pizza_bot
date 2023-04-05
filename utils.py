@@ -15,9 +15,11 @@ _database = None
 
 def init_data():
     response_menu = requests.get(MENU_URl)
+    response_menu.raise_for_status()
     products = response_menu.json()
 
     response_addresses = requests.get(ADDRESSES_URL)
+    response_addresses.raise_for_status()
     addresses = response_addresses.json()
 
     cms_api.get_addresses('Pizzeria')
