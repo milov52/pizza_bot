@@ -13,14 +13,13 @@ MENU_URl = 'https://dvmn.org/media/filer_public/a2/5a/a25a7cbd-541c-4caf-9bf9-70
 _database = None
 
 
-def read_data(url: str):
-    response = requests.get(url)
-    return response.json()
-
-
 def init_data():
-    products = read_data(MENU_URl)
-    addresses = read_data(ADDRESSES_URL)
+    response_menu = requests.get(MENU_URl)
+    products = response_menu.json()
+
+    response_addresses = requests.get(ADDRESSES_URL)
+    addresses = response_addresses.json()
+
     cms_api.get_addresses('Pizzeria')
     cms_api.create_product(products)
 
