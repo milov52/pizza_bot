@@ -5,13 +5,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def start_without_shipping(bot, update, price):
+def start_without_shipping(bot, update, price, provider_token):
     chat_id = update.callback_query.message.chat.id
     title = f"Payment_{chat_id}"
     description = "Оплатите пиццу и мы сразу же начнем ее готовить"
 
     payload = f"Custom_Payload"
-    provider_token = os.getenv('PAYMENT_TOKEN')
+
     start_parameter = f"Payment_{chat_id}"
     currency = "RUB"
     prices = [LabeledPrice("Test", price * 100)]

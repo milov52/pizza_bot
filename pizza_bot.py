@@ -85,7 +85,7 @@ def handle_cart(bot, update, job_queue):
         generate_cart(update)
     elif 'pay' in query.data:
         _, full_amount = query.data.split(':')
-        payment.start_without_shipping(bot, update, int(full_amount))
+        payment.start_without_shipping(bot, update, int(full_amount), provider_token)
         return "WAITING_ADDRESS"
 
     message, reply_markup = generate_cart(bot, update)
@@ -219,6 +219,7 @@ def error_callback(bot, update, error):
 if __name__ == '__main__':
     load_dotenv()
     token = os.environ.get("TELEGRAM_TOKEN")
+    provider_token = os.getenv('PAYMENT_TOKEN')
 
     db = get_database_connection()
     updater = Updater(token)
