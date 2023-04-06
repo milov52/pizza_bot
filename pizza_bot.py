@@ -1,6 +1,7 @@
 import logging
 import os
 
+import redis
 from dotenv import load_dotenv
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, PreCheckoutQueryHandler
@@ -8,8 +9,10 @@ from telegram.ext import Filters, Updater
 
 import cms_api
 import payment
-from utils import create_keyboard_with_columns, fetch_coordinates, generate_cart, get_database_connection, \
-    get_min_distance
+from geo import fetch_coordinates, get_min_distance
+from tg_utils import create_keyboard_with_columns, generate_cart
+
+_database = None
 
 
 def start(bot, update, job_queue):
@@ -214,6 +217,17 @@ def error_callback(bot, update, error):
         update.message.reply_text(text='Возникла ошибка!')
     except Exception as err:
         logging.critical(err)
+
+
+def get_database_connection():
+    global _database
+    if _database is None:
+        database_password = os.environ.get("DATABASE_PASSWORD")
+        database_host = os.environ.get("DATABASE_HOST")
+        database_port = os.environ.get("DATABASE_PORT")
+
+        _database = redis.Redis(host=database_host, port=database_port, password=database_password)
+    return _database
 
 
 if __name__ == '__main__':
