@@ -42,13 +42,16 @@ def webhook():
 
 def send_menu(recipient_id):
     products = cms_api.get_products()[:5]
+    products_with_details = [cms_api.get_product(product_id=product["id"])
+                             for product in products]
 
     params = {"access_token": FACEBOOK_TOKEN}
     headers = {"Content-Type": "application/json"}
 
     elements = [
         {
-            "title": f'{product["name"]} ({product["price"][0]["amount"]} р.)',
+            "title": f'{product["name"]} ({product["price"]})',
+            "image_url": product["image_path"],
             "subtitle": product["description"],
             "buttons": [
                 {
@@ -58,7 +61,7 @@ def send_menu(recipient_id):
                 },
             ],
         }
-        for product in products
+        for product in products_with_details
     ]
 
     request_content = {
@@ -107,5 +110,5 @@ if __name__ == '__main__':
     load_dotenv()
     VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN")
     FACEBOOK_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
-
+    # send_menu(123)
     app.run(debug=True, port=5002)
