@@ -221,22 +221,41 @@ def get_products():
                 for product in products_data["data"]]
     return products
 
+
+def get_categories(category_exclude=None):
+    headers = get_access_header_data()
+    category_data = requests.get(f'https://api.moltin.com/v2/categories',
+                                 headers=headers)
+    category_data.raise_for_status()
+    category_data = category_data.json()
+
+    categories = [{"id": category["id"],
+                   "name": category["name"],
+                   "slug": category["slug"],
+                   }
+                  for category in category_data["data"]
+                    if category["slug"] != category_exclude
+                  ]
+
+    return categories
+
+
 def get_products_by_category(category_slug):
     headers = get_access_header_data()
     params = {
         "filter": f"eq(slug, {category_slug})"
     }
     category_data = requests.get(f'https://api.moltin.com/v2/categories',
-                                headers=headers, params=params)
+                                 headers=headers, params=params)
     category_data.raise_for_status()
 
     category_id = category_data.json()['data'][0]['id']
 
     params = {
-        "filter" : f"eq(category.id, {category_id})"
+        "filter": f"eq(category.id, {category_id})"
     }
     products_data = requests.get(f'https://api.moltin.com/v2/products/',
-                                headers=headers, params=params)
+                                 headers=headers, params=params)
     products_data.raise_for_status()
 
     products_data = products_data.json()
@@ -247,6 +266,7 @@ def get_products_by_category(category_slug):
                  }
                 for product in products_data["data"]]
     return products
+
 
 def get_product(product_id):
     headers = get_access_header_data()
@@ -278,7 +298,7 @@ def get_file_by_id(headers, file_id: str):
     return file_data.json()
 
 
-def add_to_cart(cart_id: str, product_id: str, quantity: int,):
+def add_to_cart(cart_id: str, product_id: str, quantity: int, ):
     headers = get_access_header_data()
 
     cart_data = {

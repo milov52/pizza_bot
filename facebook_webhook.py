@@ -66,9 +66,31 @@ def get_menu_element():
         }
     ]
 
+def get_last_element(categories):
+    buttons = [
+        {
+            "type": "postback",
+            "title": category["name"],
+            'payload': 'DEVELOPER_DEFINED_PAYLOAD',
+        }
+        for category in categories
+    ]
+
+    return [
+        {
+            "title": "Не нашли нужную пиццу?",
+            "image_url": "https://primepizza.ru/uploads/position/large_0c07c6fd5c4dcadddaf4a2f1a2c218760b20c396.jpg",
+            "subtitle": "Остальные пиццы можно посмотреть в одной из категорий",
+            "buttons": buttons
+        }
+    ]
+
 
 def send_menu(recipient_id):
     products = cms_api.get_products_by_category("front-page")
+    categories_without_start = cms_api.get_categories(category_exclude='front-page')
+    last_element = get_last_element(categories_without_start)
+
     products_with_details = [cms_api.get_product(product_id=product["id"])
                              for product in products]
 
@@ -91,7 +113,7 @@ def send_menu(recipient_id):
         for product in products_with_details
     ]
 
-    elements = get_menu_element() + elements
+    elements = get_menu_element() + elements + last_element
     request_content = {
         'recipient': {
             'id': recipient_id,
@@ -139,5 +161,4 @@ if __name__ == '__main__':
     VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN")
     FACEBOOK_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
     # send_menu(123)
-
     app.run(debug=True, port=5002)
