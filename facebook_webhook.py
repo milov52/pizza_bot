@@ -40,6 +40,33 @@ def webhook():
     return "ok", 200
 
 
+def get_menu_element():
+    return [
+        {
+            "title": "Меню",
+            "image_url": "https://image.similarpng.com/very-thumbnail/2020/05/Pizza-logo-vector-PNG.png",
+            "subtitle": "Здесь вы можете выбрать один из вариантов",
+            "buttons": [
+                {
+                    'type': 'postback',
+                    'title': 'Корзина',
+                    'payload': 'DEVELOPER_DEFINED_PAYLOAD',
+                },
+                {
+                    'type': 'postback',
+                    'title': 'Акции',
+                    'payload': 'DEVELOPER_DEFINED_PAYLOAD',
+                },
+                {
+                    'type': 'postback',
+                    'title': 'Сделать заказ',
+                    'payload': 'DEVELOPER_DEFINED_PAYLOAD',
+                },
+            ]
+        }
+    ]
+
+
 def send_menu(recipient_id):
     products = cms_api.get_products()[:5]
     products_with_details = [cms_api.get_product(product_id=product["id"])
@@ -64,6 +91,7 @@ def send_menu(recipient_id):
         for product in products_with_details
     ]
 
+    elements = get_menu_element() + elements
     request_content = {
         'recipient': {
             'id': recipient_id,
