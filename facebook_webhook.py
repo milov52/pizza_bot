@@ -68,7 +68,7 @@ def get_menu_element():
 
 
 def send_menu(recipient_id):
-    products = cms_api.get_products()[:5]
+    products = cms_api.get_products_by_category("front-page")
     products_with_details = [cms_api.get_product(product_id=product["id"])
                              for product in products]
 
@@ -139,4 +139,5 @@ if __name__ == '__main__':
     VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN")
     FACEBOOK_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
     # send_menu(123)
+
     app.run(debug=True, port=5002)

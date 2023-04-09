@@ -221,6 +221,32 @@ def get_products():
                 for product in products_data["data"]]
     return products
 
+def get_products_by_category(category_slug):
+    headers = get_access_header_data()
+    params = {
+        "filter": f"eq(slug, {category_slug})"
+    }
+    category_data = requests.get(f'https://api.moltin.com/v2/categories',
+                                headers=headers, params=params)
+    category_data.raise_for_status()
+
+    category_id = category_data.json()['data'][0]['id']
+
+    params = {
+        "filter" : f"eq(category.id, {category_id})"
+    }
+    products_data = requests.get(f'https://api.moltin.com/v2/products/',
+                                headers=headers, params=params)
+    products_data.raise_for_status()
+
+    products_data = products_data.json()
+    products = [{"id": product["id"],
+                 "name": product["name"],
+                 "description": product["description"],
+                 "price": product["price"]
+                 }
+                for product in products_data["data"]]
+    return products
 
 def get_product(product_id):
     headers = get_access_header_data()
