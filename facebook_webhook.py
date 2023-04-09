@@ -4,6 +4,8 @@ import requests
 from dotenv import load_dotenv
 from flask import Flask, request
 
+import cms_api
+
 app = Flask(__name__)
 
 
@@ -39,8 +41,25 @@ def webhook():
 
 
 def send_menu(recipient_id):
+    products = cms_api.get_products()[:5]
+
     params = {"access_token": FACEBOOK_TOKEN}
     headers = {"Content-Type": "application/json"}
+
+    elements = [
+        {
+            "title": f'{product["name"]} ({product["price"][0]["amount"]} р.)',
+            "subtitle": product["description"],
+            "buttons": [
+                {
+                    'type': 'postback',
+                    'title': 'Добавить в корзину',
+                    'payload': 'DEVELOPER_DEFINED_PAYLOAD',
+                },
+            ],
+        }
+        for product in products
+    ]
 
     request_content = {
         'recipient': {
@@ -51,18 +70,7 @@ def send_menu(recipient_id):
                 'type': 'template',
                 'payload': {
                     'template_type': 'generic',
-                    'elements': [
-                        {
-                            'title': 'Заголовок',
-                            'buttons': [
-                                {
-                                    'type': 'postback',
-                                    'title': 'Тут будет кнопка',
-                                    'payload': 'DEVELOPER_DEFINED_PAYLOAD',
-                                },
-                            ],
-                        },
-                    ],
+                    'elements': elements
                 },
             },
         },

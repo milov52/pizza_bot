@@ -213,7 +213,12 @@ def get_products():
     products_data.raise_for_status()
 
     products_data = products_data.json()
-    products = [{"id": product["id"], "name": product["name"]} for product in products_data["data"]]
+    products = [{"id": product["id"],
+                 "name": product["name"],
+                 "description": product["description"],
+                 "price": product["price"]
+                 }
+                for product in products_data["data"]]
     return products
 
 
