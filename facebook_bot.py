@@ -3,11 +3,30 @@ import os
 import requests
 from dotenv import load_dotenv
 from flask import Flask, request
+from db import get_database_connection
 
 import cms_api
 
 app = Flask(__name__)
 
+def handle_start(sender_id, message_text):
+    send_menu(sender_id)
+    return "START"
+
+def handle_users_reply(sender_id, message_text):
+    states_functions = {
+        'START': handle_start,
+    }
+    recorded_state = db.get(sender_id)
+    if not recorded_state or recorded_state.decode("utf-8") not in states_functions.keys():
+        user_state = "START"
+    else:
+        user_state = recorded_state.decode("utf-8")
+    if message_text == "/start":
+        user_state = "START"
+    state_handler = states_functions[user_state]
+    next_state = state_handler(sender_id, message_text)
+    db.set(f'faceobookid_{sender_id}', next_state)
 
 @app.route('/', methods=['GET'])
 def verify():
@@ -15,18 +34,17 @@ def verify():
     При верификации вебхука у Facebook он отправит запрос на этот адрес. На него нужно ответить VERIFY_TOKEN.
     """
     if request.args.get("hub.mode") == "subscribe" and request.args.get("hub.challenge"):
-        if not request.args.get("hub.verify_token") == VERIFY_TOKEN:
+        if not request.args.get("hub.verify_token") == os.environ["VERIFY_TOKEN"]:
             return "Verification token mismatch", 403
         return request.args["hub.challenge"], 200
-    return 'Hello world', 200
 
+    return "Hello world", 200
 
 @app.route('/', methods=['POST'])
 def webhook():
     """
     Основной вебхук, на который будут приходить сообщения от Facebook.
     """
-
     data = request.get_json()
     if data["object"] == "page":
         for entry in data["entry"]:
@@ -35,8 +53,8 @@ def webhook():
                     sender_id = messaging_event["sender"]["id"]
                     recipient_id = messaging_event["recipient"]["id"]
                     message_text = messaging_event["message"]["text"]
-                    send_menu(sender_id)
-                    # send_message(sender_id, message_text)
+
+                    handle_users_reply(sender_id, message_text)
     return "ok", 200
 
 
@@ -137,28 +155,10 @@ def send_menu(recipient_id):
 
     response.raise_for_status()
 
-
-def send_message(recipient_id, message_text):
-    params = {"access_token": FACEBOOK_TOKEN}
-    headers = {"Content-Type": "application/json"}
-    request_content = {
-        "recipient": {
-            "id": recipient_id
-        },
-        "message": {
-            "text": message_text
-        }
-    }
-    response = requests.post(
-        "https://graph.facebook.com/v2.6/me/messages",
-        params=params, headers=headers, json=request_content
-    )
-    response.raise_for_status()
-
-
 if __name__ == '__main__':
     load_dotenv()
     VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN")
     FACEBOOK_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
+    db = get_database_connection()
     # send_menu(123)
     app.run(debug=True, port=5002)
