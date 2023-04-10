@@ -10,7 +10,7 @@ import cms_api
 app = Flask(__name__)
 
 def handle_start(sender_id, message_text):
-    send_menu(sender_id)
+    send_menu(sender_id, category_slug=message_text)
     return "START"
 
 def handle_users_reply(sender_id, message_text):
@@ -52,9 +52,15 @@ def webhook():
                 if messaging_event.get("message"):
                     sender_id = messaging_event["sender"]["id"]
                     recipient_id = messaging_event["recipient"]["id"]
-                    message_text = messaging_event["message"]["text"]
+                    message_text = ''
 
-                    handle_users_reply(sender_id, message_text)
+
+                if messaging_event.get("postback"):
+                    sender_id = messaging_event["sender"]["id"]
+                    message_text = messaging_event["postback"]["payload"]
+
+                handle_users_reply(sender_id, message_text)
+
     return "ok", 200
 
 
@@ -89,7 +95,7 @@ def get_last_element(categories):
         {
             "type": "postback",
             "title": category["name"],
-            'payload': 'DEVELOPER_DEFINED_PAYLOAD',
+            'payload': category["slug"],
         }
         for category in categories
     ]
@@ -104,9 +110,12 @@ def get_last_element(categories):
     ]
 
 
-def send_menu(recipient_id):
-    products = cms_api.get_products_by_category("front-page")
-    categories_without_start = cms_api.get_categories(category_exclude='front-page')
+def send_menu(recipient_id, category_slug):
+    if not category_slug:
+        category_slug = 'front-page'
+
+    products = cms_api.get_products_by_category(category_slug)
+    categories_without_start = cms_api.get_categories(category_exclude=category_slug)
     last_element = get_last_element(categories_without_start)
 
     products_with_details = [cms_api.get_product(product_id=product["id"])
