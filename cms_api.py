@@ -328,7 +328,8 @@ def get_cart(cart_id: str):
     cart = []
     for cart_items in cart_items_response.json()["data"]:
         cart_item = {
-            "id": cart_items["product_id"],
+            "id": cart_items["id"],
+            "product_id": cart_items["product_id"],
             "name": cart_items["name"],
             "description": cart_items["description"],
             "price": cart_items["unit_price"]["amount"],

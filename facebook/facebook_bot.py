@@ -26,14 +26,33 @@ def handle_menu(sender_id, message_text: str):
         cms_api.add_to_cart(sender_id, product_id, quantity=1)
         send_message(sender_id, f'В корзину добавлена пицца {product_name}', FACEBOOK_TOKEN)
     else:
-        send_menu(sender_id, '')
+        send_menu(sender_id, '', token=FACEBOOK_TOKEN)
     return "MENU"
 
 
 def handle_cart(sender_id, message_text: str):
-    if message_text == "MENU":
-        send_menu(sender_id, category_slug=message_text, token=FACEBOOK_TOKEN)
+
+    if message_text == 'DELETE_FROM_CART:1435beaa-4ee8-447d-891e-fa95049f2abb:Цыпленок барбекю':
+        send_menu(sender_id, category_slug="", token=FACEBOOK_TOKEN)
         return "MENU"
+
+    if message_text == "MENU":
+        send_menu(sender_id, category_slug="", token=FACEBOOK_TOKEN)
+        return "MENU"
+
+    if "ADD_TO_CART" in message_text:
+        _, product_id, product_name = message_text.split(':')
+        cms_api.add_to_cart(sender_id, product_id, quantity=1)
+        send_message(sender_id, f'В корзину добавлена пицца {product_name}', FACEBOOK_TOKEN)
+
+    elif "DELETE_FROM_CART" in message_text:
+        _, product_id, product_name = message_text.split(':')
+        cms_api.delete_from_cart(sender_id, product_id)
+        send_message(sender_id, f'В Пицца {product_name} удалена из корзины', FACEBOOK_TOKEN)
+
+    client_cart = cms_api.get_cart(sender_id)
+    send_cart_menu(sender_id, client_cart, token=FACEBOOK_TOKEN)
+    return "CART"
 
 
 def handle_users_reply(sender_id, message_text):

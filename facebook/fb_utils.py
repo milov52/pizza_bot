@@ -139,8 +139,15 @@ def send_cart_menu(recipient_id, client_cart, token):
 
     menu_element = create_menu_element(**basket_menu)
     products = client_cart["cart_items"]
-    products_with_details = [cms_api.get_product(product_id=product["id"])
-                             for product in products]
+    # products_with_details = [cms_api.get_product(product_id=product["product_id"])
+    #                          for product in products]
+
+    products_with_details = []
+    for product in products:
+        product_with_details = cms_api.get_product(product_id=product["product_id"])
+        product_with_details["items_id"] = product["id"]
+        products_with_details.append(product_with_details)
+
 
     elements = [
         {
@@ -151,12 +158,12 @@ def send_cart_menu(recipient_id, client_cart, token):
                 {
                     'type': 'postback',
                     'title': 'Добавить еще одну',
-                    'payload': f'ADD_TO_CART:{product["id"]}}',
+                    'payload': f'ADD_TO_CART:{product["id"]}:{product["name"]}',
                 },
                 {
                     'type': 'postback',
                     'title': 'Убрать из корзины',
-                    'payload': f'DELETE_FROM_CART:{product["id"]}}',
+                    'payload': f'DELETE_FROM_CART:{product["items_id"]}:{product["name"]}',
                 },
 
             ],
