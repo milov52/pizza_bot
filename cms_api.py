@@ -280,6 +280,7 @@ def get_product(product_id):
     image_data = get_file_by_id(headers, file_id)
 
     product = {
+        "id": product_data["id"],
         "file_id": file_id,
         "image_path": image_data["data"]["link"]["href"],
         "name": product_data["name"],
@@ -327,7 +328,7 @@ def get_cart(cart_id: str):
     cart = []
     for cart_items in cart_items_response.json()["data"]:
         cart_item = {
-            "id": cart_items["id"],
+            "id": cart_items["product_id"],
             "name": cart_items["name"],
             "description": cart_items["description"],
             "price": cart_items["unit_price"]["amount"],
