@@ -1,5 +1,6 @@
 import cms_api
 import json
+from db import get_database_connection
 
 def create_menu(category):
     products = cms_api.get_products_by_category(category)
@@ -8,13 +9,17 @@ def create_menu(category):
     return {"menu": products_with_details}
 
 
-def cache_menu(db):
+def cache_menu():
+    client = get_database_connection()
     categories = cms_api.get_categories()
     for category in categories:
         menu = create_menu(category["slug"])
-        db.set(category["slug"], str(menu))
+        client.set(category["slug"], str(menu))
+    client.quit()
 
-def get_menu(db):
-    cached_menu = db.get("front_page")
+def get_menu(category):
+    client = get_database_connection()
+    cached_menu = client.get(category)
+    # client.quit()
     json_acceptable_string = cached_menu.replace("'", "\"")
     return json.loads(json_acceptable_string)

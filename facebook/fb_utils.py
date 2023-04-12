@@ -2,6 +2,8 @@ import json
 
 import requests
 import cms_api
+import cache
+
 
 def send_message(recipient_id, message_text, token):
     params = {"access_token": token}
@@ -21,8 +23,7 @@ def send_message(recipient_id, message_text, token):
 def send_menu(recipient_id, category_slug, token):
     if not category_slug:
         category_slug = 'front-page'
-    products = cms_api.get_products_by_category(category_slug)
-    send_main_menu(recipient_id, category_slug, products, token)
+    send_main_menu(recipient_id, category_slug, token)
 
 
 def create_menu_element(**menu):
@@ -89,7 +90,7 @@ def send_template(recipient_id, elements, token):
     )
     response.raise_for_status()
 
-def send_main_menu(recipient_id, category_slug, products, token):
+def send_main_menu(recipient_id, category_slug, token):
     main_menu = {
         "title": "Меню",
         "image_url": "https://image.similarpng.com/very-thumbnail/2020/05/Pizza-logo-vector-PNG.png",
@@ -101,9 +102,12 @@ def send_main_menu(recipient_id, category_slug, products, token):
         ]
     }
     menu_element = create_menu_element(**main_menu)
+    products = cache.get_menu(category_slug)
+
     categories_without_start = cms_api.get_categories(category_exclude=category_slug)
-    products_with_details = [cms_api.get_product(product_id=product["id"])
-                             for product in products]
+
+    print("current_category:", category_slug)
+    print(categories_without_start)
     elements = [
         {
             "title": f'{product["name"]} ({product["price"]})',
@@ -117,7 +121,7 @@ def send_main_menu(recipient_id, category_slug, products, token):
                 },
             ],
         }
-        for product in products_with_details
+        for product in products["menu"]
     ]
 
     last_element = create_last_element(categories_without_start)

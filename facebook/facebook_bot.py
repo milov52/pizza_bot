@@ -1,9 +1,12 @@
+import json
 import os
+from datetime import datetime
 
 from dotenv import load_dotenv
 from flask import Flask, request
 
 import cms_api
+import cache
 from db import get_database_connection
 from fb_utils import send_cart_menu, send_menu, send_message
 
@@ -26,16 +29,11 @@ def handle_menu(sender_id, message_text: str):
         cms_api.add_to_cart(sender_id, product_id, quantity=1)
         send_message(sender_id, f'В корзину добавлена пицца {product_name}', FACEBOOK_TOKEN)
     else:
-        send_menu(sender_id, '', token=FACEBOOK_TOKEN)
+        send_menu(sender_id, message_text, token=FACEBOOK_TOKEN)
     return "MENU"
 
 
 def handle_cart(sender_id, message_text: str):
-
-    if message_text == 'DELETE_FROM_CART:1435beaa-4ee8-447d-891e-fa95049f2abb:Цыпленок барбекю':
-        send_menu(sender_id, category_slug="", token=FACEBOOK_TOKEN)
-        return "MENU"
-
     if message_text == "MENU":
         send_menu(sender_id, category_slug="", token=FACEBOOK_TOKEN)
         return "MENU"
@@ -62,10 +60,10 @@ def handle_users_reply(sender_id, message_text):
         "CART": handle_cart,
     }
     recorded_state = db.get(f'facebookid_{sender_id}')
-    if not recorded_state or recorded_state.decode("utf-8") not in states_functions.keys():
+    if not recorded_state or recorded_state not in states_functions.keys():
         user_state = "START"
     else:
-        user_state = recorded_state.decode("utf-8")
+        user_state = recorded_state
     if message_text == "":
         user_state = "START"
     state_handler = states_functions[user_state]
@@ -114,5 +112,4 @@ if __name__ == '__main__':
     VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN")
     FACEBOOK_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
     db = get_database_connection()
-    # send_menu(123, '')
     app.run(debug=True, port=5002)
