@@ -1,12 +1,9 @@
-import json
 import os
-from datetime import datetime
 
 from dotenv import load_dotenv
 from flask import Flask, request
 
 import cms_api
-import cache
 from db import get_database_connection
 from fb_utils import send_cart_menu, send_menu, send_message
 
@@ -112,4 +109,5 @@ if __name__ == '__main__':
     VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN")
     FACEBOOK_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
     db = get_database_connection()
+
     app.run(debug=True, port=5002)

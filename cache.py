@@ -1,5 +1,4 @@
 import cms_api
-import json
 from db import get_database_connection
 
 def create_menu(category):
@@ -15,11 +14,7 @@ def cache_menu():
     for category in categories:
         menu = create_menu(category["slug"])
         client.set(category["slug"], str(menu))
-    client.quit()
 
-def get_menu(category):
-    client = get_database_connection()
-    cached_menu = client.get(category)
-    # client.quit()
-    json_acceptable_string = cached_menu.replace("'", "\"")
-    return json.loads(json_acceptable_string)
+
+if __name__ == '__main__':
+    cache_menu()

@@ -1,8 +1,16 @@
 import json
 
 import requests
+
 import cms_api
-import cache
+from db import get_database_connection
+
+
+def get_menu(category):
+    client = get_database_connection()
+    cached_menu = client.get(category)
+    json_acceptable_string = cached_menu.replace("'", "\"")
+    return json.loads(json_acceptable_string)
 
 
 def send_message(recipient_id, message_text, token):
@@ -102,12 +110,10 @@ def send_main_menu(recipient_id, category_slug, token):
         ]
     }
     menu_element = create_menu_element(**main_menu)
-    products = cache.get_menu(category_slug)
+    products = get_menu(category_slug)
 
     categories_without_start = cms_api.get_categories(category_exclude=category_slug)
 
-    print("current_category:", category_slug)
-    print(categories_without_start)
     elements = [
         {
             "title": f'{product["name"]} ({product["price"]})',
