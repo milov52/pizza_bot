@@ -36,4 +36,13 @@
    - **PAGE_ACCESS_TOKEN** Token для приложения в facebook
    - **VERIFY_TOKEN=123123** Проверочный token для авторизации приложения
 
-6запустить бота **.\pizza_bot.py**
+6. Для запуска ботов используются следующие команды
+
+**Телеграм бот:**
+
+ ```python /telegram/telegram_bot.py```
+
+**Facebook бот:**
+
+ ```python /facebook/facebook_bot.py```
+
