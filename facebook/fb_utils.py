@@ -149,8 +149,6 @@ def send_cart_menu(recipient_id, client_cart, token):
 
     menu_element = create_menu_element(**basket_menu)
     products = client_cart["cart_items"]
-    # products_with_details = [cms_api.get_product(product_id=product["product_id"])
-    #                          for product in products]
 
     products_with_details = []
     for product in products:
