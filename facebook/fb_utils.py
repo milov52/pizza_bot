@@ -9,7 +9,7 @@ from db import get_database_connection
 def get_menu(category):
     client = get_database_connection()
     cached_menu = client.get(category)
-    json_acceptable_string = cached_menu.replace("'", "\"")
+    json_acceptable = cached_menu.replace("'", "\"")
     return json.loads(json_acceptable_string)
 
 
