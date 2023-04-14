@@ -4,3 +4,5 @@ python-slugify==8.0.1
 python-telegram-bot==11.1.0
 redis==3.2.1
 geopy==2.3.0
+Flask==2.0.3
+gunicorn==19.6.0

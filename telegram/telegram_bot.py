@@ -1,7 +1,6 @@
 import logging
 import os
 
-import redis
 from dotenv import load_dotenv
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler, PreCheckoutQueryHandler
@@ -9,10 +8,9 @@ from telegram.ext import Filters, Updater
 
 import cms_api
 import payment
+from db import get_database_connection
 from geo import fetch_coordinates, get_min_distance
 from tg_utils import create_keyboard_with_columns, generate_cart
-
-_database = None
 
 
 def start(bot, update, job_queue):
@@ -206,7 +204,7 @@ def handle_users_reply(bot, update, job_queue):
     state_handler = states_functions[user_state]
     try:
         next_state = state_handler(bot, update, job_queue)
-        db.set(chat_id, next_state)
+        db.set(f'telegramid_{chat_id}', next_state)
     except Exception as err:
         print(err)
 
@@ -218,16 +216,6 @@ def error_callback(bot, update, error):
     except Exception as err:
         logging.critical(err)
 
-
-def get_database_connection():
-    global _database
-    if _database is None:
-        database_password = os.environ.get("DATABASE_PASSWORD")
-        database_host = os.environ.get("DATABASE_HOST")
-        database_port = os.environ.get("DATABASE_PORT")
-
-        _database = redis.Redis(host=database_host, port=database_port, password=database_password)
-    return _database
 
 
 if __name__ == '__main__':
