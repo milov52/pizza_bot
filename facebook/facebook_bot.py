@@ -51,6 +51,7 @@ def handle_cart(sender_id, message_text: str):
 
 
 def handle_users_reply(sender_id, message_text):
+    db = get_database_connection()
     states_functions = {
         "START": handle_start,
         "MENU": handle_menu,
@@ -106,8 +107,6 @@ def webhook():
 
 if __name__ == '__main__':
     load_dotenv()
-    VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN")
     FACEBOOK_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
-    db = get_database_connection()
 
     app.run(debug=True, port=5002)
